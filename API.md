@@ -158,9 +158,11 @@ Body inválido: campo mal escrito, faltante o extra. Ejemplo usando `username` e
 
 ## Postman
 
-Colección: ver link en el [README](./README.md#postman-recomendado).
+Documentación publicada con ejemplos de request/response:
 
-Usá **Postman Desktop** (no la versión web) para probar contra `localhost`.
+**[Colección para el Challenge AI — PI Consulting](https://documenter.getpostman.com/view/46472328/2sBXwjwZZa)**
+
+Para ejecutar los requests contra tu API local, importá la colección desde el [README](./README.md#postman-recomendado) y usá **Postman Desktop** (no la versión web).
 
 ---
 
