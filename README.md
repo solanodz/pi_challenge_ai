@@ -5,6 +5,7 @@ API en FastAPI que responde preguntas sobre el documento `docs/documento.docx`.
 ## Índice
 
 - [La herramienta](#la-herramienta)
+  - [Arquitectura](#arquitectura)
   - [Por qué 5 chunks (uno por sección)](#por-qué-5-chunks-uno-por-sección)
   - [Por qué separamos preguntas compuestas](#por-qué-separamos-preguntas-compuestas)
   - [Flujo de sub-preguntas](#flujo-de-sub-preguntas)
@@ -13,7 +14,7 @@ API en FastAPI que responde preguntas sobre el documento `docs/documento.docx`.
 - [Instalación](#instalación)
 - [Variables de entorno](#variables-de-entorno)
 - [Cómo correr el proyecto](#cómo-correr-el-proyecto)
-  - [Opción 1 — Local ](#opción-1--local-recomendado)
+  - [Opción 1 — Local](#opción-1--local-recomendado) 
   - [Opción 2 — Docker](#opción-2--docker)
 - [Probar que funciona](#probar-que-funciona)
   - [Postman](#postman-recomendado)
@@ -41,6 +42,20 @@ flowchart LR
 
 
 
+### Arquitectura
+
+El código sigue una **arquitectura en capas** (`api` → `services` → `infra`), inspirada en Clean Architecture: la API expone HTTP, `services` concentra la lógica RAG y `infra` encapsula OpenAI, Chroma y el procesamiento del `.docx`. Decidí no usar interfaces formales (ports/adapters) para priorizar claridad y operabilidad, dado el contexto acotado del challenge.
+
+
+| Capa            | Carpeta         | Responsabilidad                             |
+| --------------- | --------------- | ------------------------------------------- |
+| Presentación    | `src/api/`      | Rutas, validación Pydantic, códigos HTTP    |
+| Lógica          | `src/services/` | Ingest, retrieval, sub-preguntas, respuesta |
+| Infraestructura | `src/infra/`    | OpenAI, Chroma, docx, caché, prompt         |
+
+
+Orquestación principal en `src/services/answer_question.py`.
+
 ### Por qué 5 chunks (uno por sección)
 
 El texto de `docs/documento.docx` tiene **5 párrafos** (aprox. 330 palabras), cada uno con formato `Título: cuerpo`. Cada párrafo es un tema independiente:
@@ -58,10 +73,10 @@ El texto de `docs/documento.docx` tiene **5 párrafos** (aprox. 330 palabras), c
 **Decisión:** 1 chunk por sección, **sin overlap** (0).
 
 - Las preguntas de prueba del challenge apuntan **una por párrafo** (ver tabla) y comparten formato y tamaño similar → 5 chunks alcanzan.
-- El corpus es corto (330 palabras aprox., 5 párrafos): partir más fino no aporta porque en este caso el documento ya viene segmentado por tema.
-- No usamos ventana fija de tokens ni overlap: las secciones no se solapan temáticamente y duplicar texto no mejoraría el retrieval.
-- Chunks más grandes (por ejemplo, todo el doc en uno) mezclarían contextos distintos y empeorarían el top-1.
-- Las preguntas que cruzan secciones las cubrimos con **sub-preguntas** (ver más abajo), no con más chunks.
+- El documento es corto (330 palabras aprox., 5 párrafos similares en tamaño y estructura): partir más fino no aporta porque en este caso el documento ya viene segmentado por tema
+- No usé ventana fija de tokens ni overlap: las secciones no se solapan temáticamente y no mejoraría el retrieval.
+- Chunks más grandes (por ejemplo, todo el documento en un solo chunk) mezclarian contextos distintos y empeorarían el top1.
+- Las preguntas que cruzan secciones las cubrí con **sub-preguntas** (ver más abajo), no con más chunks.
 - Con 5 chunks, el top-1 por embedding suele traer el bloque correcto para preguntas simples.
 
 ### Por qué separamos preguntas compuestas
@@ -114,7 +129,7 @@ flowchart TB
 
 Sin este paso, un solo embedding sobre todo el mensaje suele recuperar **un solo chunk** (el más parecido al texto completo), no uno por tema.
 
-Convención recomendada para el usuario: **`pregunta 1? pregunta 2?`**. En la respuesta API, `debug.question_parts` y `debug.chunk_ids` muestran cómo se partió el mensaje.
+Convención recomendada para el usuario: `**pregunta 1? pregunta 2?`**. En la respuesta API, `debug.question_parts` y `debug.chunk_ids` muestran cómo se partió el mensaje.
 
 ### Flujo completo (ingest + POST /ask)
 
