@@ -13,10 +13,10 @@ API en FastAPI que responde preguntas sobre el documento `docs/documento.docx`.
 - [Instalación](#instalación)
 - [Variables de entorno](#variables-de-entorno)
 - [Cómo correr el proyecto](#cómo-correr-el-proyecto)
-  - [Opción 1 — Local (recomendado)](#opción-1--local-recomendado)
+  - [Opción 1 — Local ](#opción-1--local-recomendado)
   - [Opción 2 — Docker](#opción-2--docker)
 - [Probar que funciona](#probar-que-funciona)
-  - [Postman (recomendado)](#postman-recomendado)
+  - [Postman](#postman-recomendado)
   - [curl](#curl)
 - [Documentación de la API](#documentación-de-la-api)
 
@@ -197,7 +197,7 @@ Las credenciales de Chroma las encontrás en el dashboard de Chroma Cloud.
 
 ## Cómo correr el proyecto
 
-### Opción 1 — Local (recomendado)
+### Opción 1 — Local
 
 Un comando carga el documento en Chroma y levanta la API:
 
@@ -233,7 +233,7 @@ SKIP_INGEST=true docker compose up --build
 
 Con la API corriendo en **[http://localhost:8000](http://localhost:8000)**:
 
-### Postman (recomendado)
+### Postman
 
 Usá **Postman Desktop** (app instalada), no la versión web: desde el navegador no se puede llamar a `http://localhost:8000`.
 
