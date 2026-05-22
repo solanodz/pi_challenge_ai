@@ -3,7 +3,6 @@
 .env.*
 !.env.example
 
-data/chroma/
 __pycache__/
 *.py[cod]
 *$py.class
