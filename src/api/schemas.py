@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class QuestionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     user_name: str = Field(..., min_length=1)
     question: str = Field(..., min_length=1)
 

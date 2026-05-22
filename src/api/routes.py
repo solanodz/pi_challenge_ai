@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.schemas import AnswerResponse, QuestionRequest
 from src.config import get_settings
-from src.infra.chroma_connection import get_chroma_collection
+from src.infra.chroma_connection import get_chroma_collection, get_chroma_collection_sync
 from src.infra.chroma_store import ChromaStore
 from src.services.answer_question import answer_question
 
@@ -23,11 +23,9 @@ def health(collection: Collection = Depends(get_chroma_collection)) -> dict:
 
 
 @router.post("/ask", response_model=AnswerResponse)
-def ask(
-    body: QuestionRequest,
-    collection: Collection = Depends(get_chroma_collection),
-) -> AnswerResponse:
+def ask(body: QuestionRequest) -> AnswerResponse:
     try:
+        collection = get_chroma_collection_sync()
         result = answer_question(body.question, collection=collection)
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
