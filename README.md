@@ -21,25 +21,29 @@ flowchart LR
     I --> J["Respuesta"]
 ```
 
+
+
 ### Por qué 5 chunks (uno por sección)
 
-El texto de `docs/documento.docx` tiene **5 párrafos**, cada uno con formato `Título: cuerpo`. Cada párrafo es un tema independiente:
+El texto de `docs/documento.docx` tiene **5 párrafos** (aprox. 330 palabras), cada uno con formato `Título: cuerpo`. Cada párrafo es un tema independiente:
 
 
-| Sección                            | Chunk en Chroma                      |
-| ---------------------------------- | ------------------------------------ |
-| Ficción Espacial                   | `ficcion-espacial`                   |
-| Ficción Tecnológica                | `ficcion-tecnologica`                |
-| Naturaleza Deslumbrante            | `naturaleza-deslumbrante`            |
-| Cuento Corto                       | `cuento-corto`                       |
-| Características del Héroe Olvidado | `caracteristicas-del-heroe-olvidado` |
+| Sección                            | Chunk en Chroma                      | Preguntas de prueba (ejemplo)             |
+| ---------------------------------- | ------------------------------------ | ----------------------------------------- |
+| Ficción Espacial                   | `ficcion-espacial`                   | `Quien es Zara?`                          |
+| Ficción Tecnológica                | `ficcion-tecnologica`                | —                                         |
+| Naturaleza Deslumbrante            | `naturaleza-deslumbrante`            | `What is the name of the magical flower?` |
+| Cuento Corto                       | `cuento-corto`                       | `What did Emma decide to do?`             |
+| Características del Héroe Olvidado | `caracteristicas-del-heroe-olvidado` | —                                         |
 
 
 **Decisión:** 1 chunk por sección, **sin overlap** (0).
 
-- Las preguntas de prueba apuntan **una por párrafo** y comparten formato y tamaño similar → 5 chunks alcanzan para este caso.
-- Considero que hacer chunks más chicos no sería una buena decisión en este caso: el documento ya viene segmentado por tema y es corto.
-- Chunks más grandes mezclarían contextos distintos y empeorarían el retrieval. Para contemplar preguntas que solicitan información de distintas partes hicimos la parte de sub-preguntas.
+- Las preguntas de prueba del challenge apuntan **una por párrafo** (ver tabla) y comparten formato y tamaño similar → 5 chunks alcanzan.
+- El corpus es corto (330 palabras aprox., 5 párrafos): partir más fino no aporta porque en este caso el documento ya viene segmentado por tema.
+- No usamos ventana fija de tokens ni overlap: las secciones no se solapan temáticamente y duplicar texto no mejoraría el retrieval.
+- Chunks más grandes (por ejemplo, todo el doc en uno) mezclarían contextos distintos y empeorarían el top-1.
+- Las preguntas que cruzan secciones las cubrimos con **sub-preguntas** (ver más abajo), no con más chunks.
 - Con 5 chunks, el top-1 por embedding suele traer el bloque correcto para preguntas simples.
 
 ### Por qué separamos preguntas compuestas
@@ -56,7 +60,43 @@ Cómo se separan (solo señales **estructurales**, sin listas de palabras clave)
 
 Cada parte se embedea y consulta su top-1; los chunks se unen en un solo contexto para el LLM, que responde **en una oración** si el prompt lo pide.
 
-Convención recomendada para el usuario: **`pregunta 1? pregunta 2?`**. En la respuesta API, `debug.question_parts` y `debug.chunk_ids` muestran cómo se partió el mensaje.
+### Flujo de sub-preguntas
+
+Ejemplo: *"What did Emma decide to do? What is the name of the magical flower?"*
+
+```mermaid
+flowchart TB
+    Q["question compuesto"]
+
+    subgraph SPLIT["split_questions() — señales estructurales"]
+        S1["1. ¿Varias partes con ? o ! ?"]
+        S2["2. Si no, ¿con ; ?"]
+        S3["3. Si no, ¿con salto de línea?"]
+        S1 --> S2 --> S3
+    end
+
+    Q --> SPLIT
+    SPLIT --> P1["Subpregunta 1<br/>What did Emma decide to do?"]
+    SPLIT --> P2["Subpregunta 2<br/>What is the name of the magical flower?"]
+
+    P1 --> E1["embed → Chroma top-1"]
+    P2 --> E2["embed → Chroma top-1"]
+
+    E1 --> H1["cuento-corto"]
+    E2 --> H2["naturaleza-deslumbrante"]
+
+    H1 --> MERGE["Unir contexto<br/>dedupe por chunk_id"]
+    H2 --> MERGE
+
+    MERGE --> LLM["LLM + answer.txt<br/>respuesta en una oración"]
+    LLM --> DBG["debug.question_parts<br/>debug.chunk_ids<br/>retrieval_mode: compound"]
+```
+
+
+
+Sin este paso, un solo embedding sobre todo el mensaje suele recuperar **un solo chunk** (el más parecido al texto completo), no uno por tema.
+
+Convención recomendada para el usuario: `**pregunta 1? pregunta 2?`**. En la respuesta API, `debug.question_parts` y `debug.chunk_ids` muestran cómo se partió el mensaje.
 
 ### Flujo completo (ingest + POST /ask)
 
@@ -92,6 +132,8 @@ flowchart TB
     CHROMA -.-> RET
     OUT_NO --> OUT
 ```
+
+
 
 ## Requisitos
 
