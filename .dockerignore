@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.venv-pi
+__pycache__
+*.py[cod]
+.pytest_cache
+.DS_Store
+.env
+.env.*
+!.env.example
+tutorial_chroma.ipynb
+challenge.md
+*.md
+!README.md
