@@ -10,6 +10,39 @@ La API responde preguntas sobre `docs/documento.docx` usando RAG:
 
 El documento tiene **5 secciones** → **5 chunks** en Chroma (uno por sección).
 
+```mermaid
+flowchart TB
+    subgraph INGEST["Ingest (scripts/ingest.py o run_local.py)"]
+        DOC["docs/documento.docx<br/>5 secciones"]
+        READ["docx_reader.read_sections()<br/>1 chunk por sección, overlap 0"]
+        EMB_DOC["OpenAI embeddings<br/>text-embedding-3-small"]
+        CHROMA[("Chroma Cloud<br/>5 chunks indexados")]
+        DOC --> READ --> EMB_DOC --> CHROMA
+    end
+
+    subgraph API["POST /ask"]
+        REQ["Request JSON<br/>user_name + question"]
+        LANG["detect_language()<br/>es / en / pt"]
+        CACHE{"¿Respuesta<br/>en caché?"}
+        SPLIT["split_questions()<br/>? ; o salto de línea"]
+        EMB_Q["OpenAI embed<br/>por subpregunta"]
+        RET["Chroma query_top1<br/>chunk más similar"]
+        TH{"distancia L2<br/>≤ umbral?"}
+        PROMPT["answer.txt<br/>contexto + pregunta"]
+        LLM["OpenAI chat<br/>temperature = 0"]
+        OUT["Response JSON<br/>question, answer, language, cached, debug"]
+
+        REQ --> LANG --> CACHE
+        CACHE -->|Sí| OUT
+        CACHE -->|No| SPLIT --> EMB_Q --> RET --> TH
+        TH -->|No| OUT_NO["«No figura en el documento»"]
+        TH -->|Sí| PROMPT --> LLM --> OUT
+    end
+
+    CHROMA -.-> RET
+    OUT_NO --> OUT
+```
+
 ---
 
 ## Endpoints
