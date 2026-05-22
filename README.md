@@ -2,6 +2,24 @@
 
 API en FastAPI que responde preguntas sobre el documento `docs/documento.docx`.
 
+## Índice
+
+- [La herramienta](#la-herramienta)
+  - [Por qué 5 chunks (uno por sección)](#por-qué-5-chunks-uno-por-sección)
+  - [Por qué separamos preguntas compuestas](#por-qué-separamos-preguntas-compuestas)
+  - [Flujo de sub-preguntas](#flujo-de-sub-preguntas)
+  - [Flujo completo (ingest + POST /ask)](#flujo-completo-ingest--post-ask)
+- [Requisitos](#requisitos)
+- [Instalación](#instalación)
+- [Variables de entorno](#variables-de-entorno)
+- [Cómo correr el proyecto](#cómo-correr-el-proyecto)
+  - [Opción 1 — Local (recomendado)](#opción-1--local-recomendado)
+  - [Opción 2 — Docker](#opción-2--docker)
+- [Probar que funciona](#probar-que-funciona)
+  - [Postman (recomendado)](#postman-recomendado)
+  - [curl](#curl)
+- [Documentación de la API](#documentación-de-la-api)
+
 ## La herramienta
 
 Servicio RAG local que recibe una pregunta por HTTP, busca el fragmento más relevante del documento en **Chroma Cloud** (similitud vectorial con embeddings de **OpenAI**) y genera la respuesta con un LLM siguiendo las reglas del challenge (una oración, tercera persona, emojis, mismo idioma que la pregunta).
@@ -96,7 +114,7 @@ flowchart TB
 
 Sin este paso, un solo embedding sobre todo el mensaje suele recuperar **un solo chunk** (el más parecido al texto completo), no uno por tema.
 
-Convención recomendada para el usuario: `**pregunta 1? pregunta 2?`**. En la respuesta API, `debug.question_parts` y `debug.chunk_ids` muestran cómo se partió el mensaje.
+Convención recomendada para el usuario: **`pregunta 1? pregunta 2?`**. En la respuesta API, `debug.question_parts` y `debug.chunk_ids` muestran cómo se partió el mensaje.
 
 ### Flujo completo (ingest + POST /ask)
 
