@@ -1,11 +1,15 @@
 import re
+from functools import lru_cache
 
-from langdetect import DetectorFactory, LangDetectException, detect
-
-# Stable language guesses for the same input (challenge determinism).
-DetectorFactory.seed = 0
+from lingua import Language, LanguageDetectorBuilder
 
 SUPPORTED_LANGUAGES = frozenset({"es", "en", "pt"})
+
+LINGUA_TO_CODE = {
+    Language.SPANISH: "es",
+    Language.ENGLISH: "en",
+    Language.PORTUGUESE: "pt",
+}
 
 NOT_IN_DOCUMENT = {
     "es": "La información solicitada no figura en el documento proporcionado 📄.",
@@ -27,20 +31,28 @@ def normalize_question(question: str) -> str:
     return normalized
 
 
+@lru_cache(maxsize=1)
+def _language_detector():
+    return (
+        LanguageDetectorBuilder.from_languages(
+            Language.SPANISH,
+            Language.ENGLISH,
+            Language.PORTUGUESE,
+        )
+        .with_preloaded_language_models()
+        .build()
+    )
+
+
 def detect_language(text: str) -> str:
-    """Detect es / en / pt using langdetect. Defaults to es if uncertain."""
+    """Detect es / en / pt with Lingua (restricted to challenge languages)."""
     stripped = text.strip()
     if not stripped:
         return "es"
-    try:
-        code = detect(stripped)
-    except LangDetectException:
+    detected = _language_detector().detect_language_of(stripped)
+    if detected is None:
         return "es"
-    if code in SUPPORTED_LANGUAGES:
-        return code
-    if code.startswith("pt"):
-        return "pt"
-    return "es"
+    return LINGUA_TO_CODE.get(detected, "es")
 
 
 def not_in_document_answer(language: str) -> str:

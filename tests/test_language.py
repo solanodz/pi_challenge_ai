@@ -17,5 +17,9 @@ def test_english():
     assert detect_language("What is the name of the magical flower?") == "en"
 
 
+def test_english_emma_question_not_portuguese():
+    assert detect_language("What did Emma decide to do?") == "en"
+
+
 def test_portuguese():
     assert detect_language("Quem é Alex e por que a humanidade luta?") == "pt"
