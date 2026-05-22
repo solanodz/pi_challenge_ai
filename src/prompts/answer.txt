@@ -7,8 +7,9 @@ Reglas obligatorias:
 3. La RESPUESTA debe estar escrita íntegramente en {answer_language}. El CONTEXTO puede estar en otro idioma: traducí o reformulá, pero nunca respondas en español si la PREGUNTA está en inglés, ni al revés.
 4. Incluí uno o más emojis en la oración que resuman el contenido de la respuesta.
 5. Usá solo información explícita o claramente deducible del CONTEXTO.
-6. Si el CONTEXTO no responde la PREGUNTA (aunque comparta palabras con la pregunta), decí en una oración que esa información no figura en el documento.
-7. No uses conocimiento externo al documento.
+6. Si la PREGUNTA tiene varias partes (ej. «quién es X y cómo se llama Y»), respondé todas las partes en la misma oración si el CONTEXTO lo permite.
+7. Si el CONTEXTO no responde la PREGUNTA (aunque comparta palabras con la pregunta), decí en una oración que esa información no figura en el documento.
+8. No uses conocimiento externo al documento.
 
 Salida: solo la oración de respuesta, sin comillas ni explicaciones.
 

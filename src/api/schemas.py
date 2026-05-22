@@ -7,6 +7,7 @@ class QuestionRequest(BaseModel):
 
 
 class AnswerResponse(BaseModel):
+    question: str
     answer: str
     language: str
     cached: bool

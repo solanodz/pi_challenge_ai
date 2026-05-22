@@ -1,7 +1,6 @@
 import os
 from functools import lru_cache
 from pathlib import Path
-
 from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -39,6 +38,6 @@ class Settings:
             "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
         )
         self.retrieval_distance_max = float(
-            os.environ.get("RETRIEVAL_DISTANCE_MAX", "1.25")
+            os.environ.get("RETRIEVAL_DISTANCE_MAX", "1.77")
         )
         self.prompts_dir = Path(__file__).resolve().parent / "prompts"

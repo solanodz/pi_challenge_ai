@@ -29,23 +29,36 @@ class ChromaStore:
             metadatas=metadatas,
         )
 
+    def _parse_hits(self, result: dict) -> list[RetrievalHit]:
+        if not result["ids"] or not result["ids"][0]:
+            return []
+        hits: list[RetrievalHit] = []
+        for idx, chunk_id in enumerate(result["ids"][0]):
+            metadata = (result["metadatas"][0][idx] or {}) if result["metadatas"] else {}
+            hits.append(
+                RetrievalHit(
+                    chunk_id=chunk_id,
+                    document=result["documents"][0][idx],
+                    section_title=metadata.get("section_title", ""),
+                    distance=float(result["distances"][0][idx]),
+                )
+            )
+        return hits
+
     def query_top1(self, embedding: list[float]) -> RetrievalHit | None:
+        hits = self.query_top_k(embedding, n_results=1)
+        return hits[0] if hits else None
+
+    def query_top_k(self, embedding: list[float], n_results: int = 1) -> list[RetrievalHit]:
         if self.count() == 0:
-            return None
+            return []
+        n_results = min(n_results, self.count())
         result = self._collection.query(
             query_embeddings=[embedding],
-            n_results=1,
+            n_results=n_results,
             include=["documents", "metadatas", "distances"],
         )
-        if not result["ids"] or not result["ids"][0]:
-            return None
-        metadata = result["metadatas"][0][0] or {}
-        return RetrievalHit(
-            chunk_id=result["ids"][0][0],
-            document=result["documents"][0][0],
-            section_title=metadata.get("section_title", ""),
-            distance=float(result["distances"][0][0]),
-        )
+        return self._parse_hits(result)
 
     def count(self) -> int:
         return self._collection.count()

@@ -35,6 +35,7 @@ def ask(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return AnswerResponse(
+        question=result.question,
         answer=result.answer,
         language=result.language,
         cached=result.cached,

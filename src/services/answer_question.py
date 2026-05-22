@@ -8,11 +8,13 @@ from src.infra.chroma_store import ChromaStore
 from src.infra.memory_cache import MemoryCache
 from src.infra.openai_gateway import OpenAIGateway
 from src.infra.prompt_loader import load_answer_prompt
+from src.services.retrieval import retrieve_context
 from src.services.text_utils import (
     ANSWER_LANGUAGE_LABEL,
     answer_matches_language,
     cache_key,
     detect_language,
+    is_not_in_document_answer,
     not_in_document_answer,
 )
 
@@ -21,10 +23,16 @@ _cache = MemoryCache()
 
 @dataclass
 class AnswerResult:
+    question: str
     answer: str
     language: str
     cached: bool
     debug: dict
+
+
+def _cache_answer(key: str, answer: str, language: str) -> None:
+    if not is_not_in_document_answer(answer, language):
+        _cache.set(key, answer)
 
 
 def _load_prompts(settings: Settings) -> tuple[str, str]:
@@ -43,6 +51,7 @@ def answer_question(
     cached_answer = _cache.get(key)
     if cached_answer is not None and answer_matches_language(cached_answer, language):
         return AnswerResult(
+            question=question,
             answer=cached_answer,
             language=language,
             cached=True,
@@ -54,8 +63,8 @@ def answer_question(
     chroma = ChromaStore(collection)
     if chroma.count() == 0:
         answer = not_in_document_answer(language)
-        _cache.set(key, answer)
         return AnswerResult(
+            question=question,
             answer=answer,
             language=language,
             cached=False,
@@ -63,13 +72,12 @@ def answer_question(
         )
 
     openai = OpenAIGateway(settings)
-    query_embedding = openai.embed_one(question)
-    hit = chroma.query_top1(query_embedding)
+    retrieval = retrieve_context(question, chroma, openai, settings)
 
-    if hit is None:
+    if retrieval is None:
         answer = not_in_document_answer(language)
-        _cache.set(key, answer)
         return AnswerResult(
+            question=question,
             answer=answer,
             language=language,
             cached=False,
@@ -77,17 +85,22 @@ def answer_question(
         )
 
     debug = {
-        "chunk_id": hit.chunk_id,
-        "section_title": hit.section_title,
-        "retrieval_distance": hit.distance,
+        "retrieval_mode": retrieval.mode,
+        "question_parts": retrieval.question_parts,
+        "chunk_ids": [hit.chunk_id for hit in retrieval.hits],
+        "section_titles": [hit.section_title for hit in retrieval.hits],
+        "retrieval_distance": retrieval.max_distance,
         "retrieval_threshold": settings.retrieval_distance_max,
     }
+    if len(retrieval.hits) == 1:
+        debug["chunk_id"] = retrieval.hits[0].chunk_id
+        debug["section_title"] = retrieval.hits[0].section_title
 
-    if hit.distance > settings.retrieval_distance_max:
+    if retrieval.max_distance > settings.retrieval_distance_max:
         answer = not_in_document_answer(language)
-        _cache.set(key, answer)
         debug["reason"] = "below_threshold"
         return AnswerResult(
+            question=question,
             answer=answer,
             language=language,
             cached=False,
@@ -97,7 +110,7 @@ def answer_question(
     system_prompt, user_template = _load_prompts(settings)
     answer_language = ANSWER_LANGUAGE_LABEL[language]
     user_prompt = user_template.format(
-        context=hit.document,
+        context=retrieval.context,
         question=question,
         answer_language=answer_language,
     )
@@ -110,9 +123,10 @@ def answer_question(
             "Do not use Spanish if the question is in English."
         )
         answer = openai.chat(system=system_prompt, user=retry_user)
-    _cache.set(key, answer)
+    _cache_answer(key, answer, language)
 
     return AnswerResult(
+        question=question,
         answer=answer,
         language=language,
         cached=False,
