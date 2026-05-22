@@ -1,3 +1,5 @@
+"""Recuperación de contexto: embedding de la pregunta + búsqueda en Chromadb"""
+
 from dataclasses import dataclass
 
 from src.config import Settings
@@ -8,14 +10,17 @@ from src.services.question_splitter import split_questions
 
 @dataclass
 class RetrievalResult:
+    """Chunks recuperados y contexto listo para el prompt."""
+
     context: str
     hits: list[RetrievalHit]
-    mode: str
+    mode: str  # "single" o "compound"
     max_distance: float
     question_parts: list[str]
 
 
 def _merge_context(hits: list[RetrievalHit]) -> str:
+    """Une varios chunks con el título de sección como encabezado"""
     blocks = [f"[{hit.section_title}]\n{hit.document}" for hit in hits]
     return "\n\n".join(blocks)
 
@@ -26,6 +31,12 @@ def retrieve_context(
     openai: OpenAIGateway,
     settings: Settings,
 ) -> RetrievalResult | None:
+    """
+    Busca el chunk mas relevante por cada subpregunta.
+
+    Devuelve None si no hay hits. Si la distancia maxima supera el umbral,
+    devuelve hits con context vacío (answer_question decide el mensaje final)
+    """
     parts = split_questions(question)
     seen_ids: set[str] = set()
     hits: list[RetrievalHit] = []
@@ -44,6 +55,7 @@ def retrieve_context(
     max_distance = max(hit.distance for hit in hits)
 
     if max_distance > settings.retrieval_distance_max:
+        # Si la distancia maxima supera el umbral, devuelve hits con context vacío
         return RetrievalResult(
             context="",
             hits=hits,
@@ -52,6 +64,7 @@ def retrieve_context(
             question_parts=parts,
         )
 
+    # Si la distancia maxima no supera el umbral, devuelve hits con context no vacío
     return RetrievalResult(
         context=_merge_context(hits),
         hits=hits,

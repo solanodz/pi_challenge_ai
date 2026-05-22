@@ -1,33 +1,38 @@
+"""Lectura del corpus Word y división en secciones (chunks)"""
+
 import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-
 from docx import Document
 
-# Chroma Cloud free tier limits ID size (bytes); keep ids short.
+# Chroma Cloud limita el tamaño del ID; usamos slugs cortos por título.
 MAX_CHUNK_ID_BYTES = 120
 
 
 @dataclass
 class SectionChunk:
+    """Una seccion del documento lista para hacer el embedding e indexar."""
+
     chunk_id: str
     section_title: str
     text: str
 
 
 def _slugify(title: str) -> str:
+    """Convierte un título en un id seguro para Chroma."""
     normalized = (
         unicodedata.normalize("NFKD", title)
-        .encode("ascii", "ignore")
+        .encode("ascii", "ignore") # Convierte el titulo a ascii ignorando los caracteres no ascii.
         .decode("ascii")
         .lower()
     )
-    slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")
-    return slug or "section"
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-") # Reemplaza los caracteres no ascii por un guion.
+    return slug or "section" # Si el slug es vacio devuelve "section"
 
 
 def _short_chunk_id(title: str, index: int) -> str:
+    """Slug del título o fallback numerico si excede el límite de bytes"""
     slug = _slugify(title)
     if len(slug.encode("utf-8")) <= MAX_CHUNK_ID_BYTES:
         return slug
@@ -35,6 +40,7 @@ def _short_chunk_id(title: str, index: int) -> str:
 
 
 def _split_title_body(paragraph_text: str) -> tuple[str, str]:
+    """Separa 'Título: cuerpo' en una sola línea."""
     text = paragraph_text.strip()
     if ": " in text:
         title, body = text.split(": ", 1)
@@ -43,6 +49,7 @@ def _split_title_body(paragraph_text: str) -> tuple[str, str]:
 
 
 def _paragraph_is_title_only(paragraph) -> bool:
+    """True si el párrafo es solo un título en negrita (formato A)"""
     text = paragraph.text.strip()
     if not text:
         return False
@@ -53,13 +60,19 @@ def _paragraph_is_title_only(paragraph) -> bool:
 
 
 def read_sections(docx_path: Path) -> list[SectionChunk]:
+    """
+    Lee el doc y devuelve una lista de secciones.
+
+    Soporta dos formatos:
+    - A: párrafo título (bold) + párrafos de cuerpo
+    - B: un párrafo Título: cuerpo (formato del corpus del challenge)
+    """
     if not docx_path.exists():
         raise FileNotFoundError(f"Corpus not found: {docx_path}")
 
     document = Document(docx_path)
     sections: list[SectionChunk] = []
 
-    # Format A: title paragraph (bold) + body paragraph(s)
     current_title: str | None = None
     body_parts: list[str] = []
 
@@ -84,15 +97,14 @@ def read_sections(docx_path: Path) -> list[SectionChunk]:
         text = paragraph.text.strip()
         if not text:
             continue
-        if _paragraph_is_title_only(paragraph):
+        if _paragraph_is_title_only(paragraph): # Si el párrafo es solo un título en negrita (formato A)
             flush_title_body()
             current_title = text
             body_parts = []
-        elif current_title is not None:
+        elif current_title is not None: # Si el párrafo es un cuerpo (formato B)
             body_parts.append(text)
         else:
-            # Format B: single paragraph "Title: body" (this corpus)
-            title, body = _split_title_body(text)
+            title, body = _split_title_body(text) # Si el párrafo es un título y un cuerpo (formato B)
             full_text = f"{title}: {body}".strip(": ").strip() if body else text
             index = len(sections)
             sections.append(

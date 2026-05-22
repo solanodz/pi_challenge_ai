@@ -1,3 +1,5 @@
+"""Indexación del corpus: secciones del docx -> embeddings -> Chromadb"""
+
 from chromadb.api.models.Collection import Collection
 
 from src.config import Settings, get_settings
@@ -12,6 +14,12 @@ def ingest_corpus(
     reset: bool = True,
     collection: Collection | None = None,
 ) -> int:
+    """
+    Lee el doc, hace embedding de cada seccion y hace upsert en Chroma.
+
+    Return:
+        Cantidad de chunks indexados (5 en el corpus del challenge)
+    """
     settings = settings or get_settings()
     sections = read_sections(settings.corpus_path)
     openai = OpenAIGateway(settings)

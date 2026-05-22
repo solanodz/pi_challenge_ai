@@ -1,26 +1,22 @@
 """
-Split a user message into independent questions using structural cues only.
+División de mensajes compuestos en subpreguntas.
 
-We do not match topic-specific words (e.g. "quien", "Zara"). Boundaries come from
-punctuation and layout—the same signals users expect in a Q&A API.
+Solo usa señales estructurales (puntuación, saltos de línea)
 """
 
 import re
 
-MIN_PART_CHARS = 4
+MIN_PART_CHARS = 4 
 
-# Optional leading label: "decime: ...", "note: ..." (single prefix, any word)
-_LEADING_LABEL = re.compile(r"^[a-záéíóúñüA-ZÁÉÍÓÚÑÜ]+:\s*", re.IGNORECASE)
-
-_QUESTION_MARK_BOUNDARY = re.compile(r"[?!]+\s*")
-_SEMICOLON_BOUNDARY = re.compile(r"\s*;\s*")
-_NEWLINE_BOUNDARY = re.compile(r"\n+")
+_QUESTION_MARK_BOUNDARY = re.compile(r"[?!]+\s*") # Signo de pregunta/exclamacion
+_SEMICOLON_BOUNDARY = re.compile(r"\s*;\s*") # Punto y coma
+_NEWLINE_BOUNDARY = re.compile(r"\n+") # Salto de linea
 
 
 def _normalize_part(part: str) -> str:
+    """Limpia espacios, comas y un label inicial si existe."""
     text = part.strip(" ,.")
     text = re.sub(r"^[;,\s]+", "", text)
-    text = _LEADING_LABEL.sub("", text, count=1).strip()
     return text
 
 
@@ -29,6 +25,7 @@ def _valid_parts(parts: list[str]) -> list[str]:
 
 
 def _split_if_multiple(text: str, pattern: re.Pattern[str]) -> list[str] | None:
+    """Parte solo si el patrón produce al menos dos subpreguntas válidas"""
     if not pattern.search(text):
         return None
     parts = _valid_parts(pattern.split(text))
@@ -37,12 +34,12 @@ def _split_if_multiple(text: str, pattern: re.Pattern[str]) -> list[str] | None:
 
 def split_questions(message: str) -> list[str]:
     """
-    Devolver una o mas preguntas para recuperar.
+    Devuelve una o más subpreguntas para retrieval.
 
     Estrategias para separar las preguntas compuestas:
     1. Signo de pregunta/exclamacion: "Q1? Q2?"
     2. Punto y coma: "Q1; Q2"
-    3. Saltos de linea: "Q1\\nQ2"
+    3. Saltos de linea: "Q1\nQ2"
     """
     raw = message.strip()
     if not raw:

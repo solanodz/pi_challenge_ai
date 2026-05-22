@@ -1,3 +1,5 @@
+"""Orquestacion RAG: caché, retrieval, prompt y respuesta del LLM."""
+
 from dataclasses import dataclass
 
 from chromadb.api.models.Collection import Collection
@@ -18,11 +20,14 @@ from src.services.text_utils import (
     not_in_document_answer,
 )
 
+# Una caché por proceso (ver MemoryCache).
 _cache = MemoryCache()
 
 
 @dataclass
 class AnswerResult:
+    """Resultado interno convertido luego en AnswerResponse por la API"""
+
     question: str
     answer: str
     language: str
@@ -31,11 +36,13 @@ class AnswerResult:
 
 
 def _cache_answer(key: str, answer: str, language: str) -> None:
+    """Guarda respuestas válidas; omite mensajes 'no figura en el documento'."""
     if not is_not_in_document_answer(answer, language):
         _cache.set(key, answer)
 
 
 def _load_prompts(settings: Settings) -> tuple[str, str]:
+    """Carga system +  user prompt desde src/prompts/answer.txt."""
     return load_answer_prompt(settings.prompts_dir)
 
 
@@ -44,6 +51,11 @@ def answer_question(
     settings: Settings | None = None,
     collection: Collection | None = None,
 ) -> AnswerResult:
+    """
+    Responde una pregunta sobre el corpus.
+
+    Flujo: idioma -> cache -> retrieval -> umbral L2 -> LLM -> cache.
+    """
     settings = settings or get_settings()
     language = detect_language(question)
     key = cache_key(question, language)
@@ -117,6 +129,7 @@ def answer_question(
     system_prompt = system_prompt.format(answer_language=answer_language)
     answer = openai.chat(system=system_prompt, user=user_prompt)
     if not answer_matches_language(answer, language):
+        # Reintento único si el LLM respondió en otro idioma
         retry_user = (
             f"{user_prompt}\n\n"
             f"IMPORTANT: Rewrite the answer entirely in {answer_language}. "

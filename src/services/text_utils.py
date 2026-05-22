@@ -1,3 +1,5 @@
+"""Detección de idioma, claves de caché y mensajes 'no figura en el documento'."""
+
 import re
 from functools import lru_cache
 
@@ -17,6 +19,7 @@ NOT_IN_DOCUMENT = {
     "pt": "A informação solicitada não consta no documento fornecido 📄.",
 }
 
+# Etiquetas legibles para el prompt {answer_language}
 ANSWER_LANGUAGE_LABEL = {
     "es": "español",
     "en": "inglés (English)",
@@ -25,6 +28,7 @@ ANSWER_LANGUAGE_LABEL = {
 
 
 def normalize_question(question: str) -> str:
+    """Normaliza para claves de cache (minúsculas, sin signos finales)"""
     normalized = question.strip().lower()
     normalized = re.sub(r"\s+", " ", normalized)
     normalized = normalized.rstrip("?¿").rstrip()
@@ -33,6 +37,7 @@ def normalize_question(question: str) -> str:
 
 @lru_cache(maxsize=1)
 def _language_detector():
+    """Detector Lingua restringido a es/en/pt (carga modelos una sola vez)"""
     return (
         LanguageDetectorBuilder.from_languages(
             Language.SPANISH,
@@ -45,29 +50,31 @@ def _language_detector():
 
 
 def detect_language(text: str) -> str:
-    """Detect es / en / pt with Lingua (restricted to challenge languages)."""
+    """Detecta español, inglés o portugués. Default es si el texto está vacío o es ambiguo."""
     stripped = text.strip()
     if not stripped:
         return "es"
-    detected = _language_detector().detect_language_of(stripped)
+    detected = _language_detector().detect_language_of(stripped) 
     if detected is None:
         return "es"
     return LINGUA_TO_CODE.get(detected, "es")
 
 
 def not_in_document_answer(language: str) -> str:
+    """Mensaje fijo cuando el contexto no alcanza o no hay hit"""
     return NOT_IN_DOCUMENT.get(language, NOT_IN_DOCUMENT["es"])
 
 
 def is_not_in_document_answer(answer: str, language: str) -> bool:
     return answer == not_in_document_answer(language)
 
-
+# Clave de caché para la pregunta
 def cache_key(question: str, language: str) -> str:
     return f"{language}:{normalize_question(question)}"
 
 
 def answer_matches_language(answer: str, language: str) -> bool:
+    """Valida idioma de la respuesta (incluye mensajes 'no figura')"""
     if answer in NOT_IN_DOCUMENT.values():
         return answer == not_in_document_answer(language)
     return detect_language(answer) == language

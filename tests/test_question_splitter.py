@@ -1,6 +1,6 @@
 from src.services.question_splitter import split_questions
 
-
+# test de separaciones de preguntas (signos, punto y coma, salto de linea)
 def test_single_question_with_mark():
     assert split_questions("Quien es Zara?") == ["Quien es Zara?"]
 

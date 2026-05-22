@@ -1,0 +1,1 @@
+"""Integraciones externas: Chroma, OpenAI, lectura del docx, caché y prompts."""
